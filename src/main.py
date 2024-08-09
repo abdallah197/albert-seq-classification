@@ -1,14 +1,30 @@
 import pandas as pd
 import torch
+from dataclasses import dataclass
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer, AutoModel
 
+@dataclass
+class TrainConfig:
+    file_path = '../data/imdb.csv'
+    model_id = 'albert/albert-base-v2'
+    batch_size = 16
+    eval_steps = 10
+    max_lr = 3e-5
+    epochs = 4
+    device = 'cpu'
+
+config = TrainConfig()
 ### config ###
-file_path = '../data/imdb.csv'
-model_id = 'albert/albert-base-v2'
-batch_size = 16
+
+if torch.cuda.is_available():
+    config.device = "cuda"
+elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    config.device = "mps"
+print(f"using device: {config.device}")
+
 
 
 class TextClassification(Dataset):
@@ -78,7 +94,3 @@ class AlbertModelForClassification(nn.Module):
 
 
 model = AlbertModelForClassification(model_id)
-
-for item in train_dataloader:
-    output, loss = model(item)
-    print(output)
