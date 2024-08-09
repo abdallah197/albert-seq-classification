@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, random_split
 from transformers import AutoTokenizer
 
 ### config ###
@@ -33,4 +33,8 @@ class TextClassification(Dataset):
         return tokenized_txt
 
 dataset = TextClassification(file_path, model_id)
-print(dataset[2])
+train_size = int(0.9 * len(dataset))
+test_size = len(dataset) - train_size
+train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+
+train_dataloader, test_dataloader = prepare_dataloaders(dataset, split_size= 0.9)
