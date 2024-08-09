@@ -77,8 +77,11 @@ class AlbertModelForClassification(nn.Module):
         self.out = nn.Linear(hidden_size, num_labels)
 
     def forward(self, inputs, use_cls_token=True):
-        labels = inputs['labels']
-        del inputs['labels']
+        labels = None
+        loss = None
+        if 'labels' in inputs:
+            labels = inputs['labels']
+            del inputs['labels']
         outputs = self.model(**inputs)
 
         # choosing cls of avg output, will change dependign on performance
@@ -89,7 +92,8 @@ class AlbertModelForClassification(nn.Module):
             logits = torch.mean(last_hidden_state, dim=1)
         scores = self.out(logits)
         scores = F.softmax(scores, dim=-1)
-        loss = F.cross_entropy(scores, labels)
+        if labels:
+            loss = F.cross_entropy(scores, labels)
         return scores, loss
 
 
@@ -138,11 +142,17 @@ def train(config: TrainConfig, model: AlbertModelForClassification, train_datalo
                     best_model = torch.save(model.state_dict(), config.out_dir)
     return best_model
 
-train(config, model, train_dataloader, test_dataloader)
 
+def inference(model, config, example_txt):
+    tokenizer = AutoTokenizer.from_pretrained(config.model_id)
+    tokenized_txt = tokenizer(example_txt, truncation=True, max_length=tokenizer.model_max_length,
+                                       padding='max_length', return_tensors='pt')
+    tokenized_txt = {item: val.to(config.device) for item, val in tokenized_txt.items()}
+    props, _ = model(tokenized_txt)
+    preds = torch.argmax(props, dim=1).detach().item()
+    return preds == 1
 
+example_txt = "Besides being boring, the scenes were oppressive and dark. The movie tried to portray some kind of moral, but fell flat with its message. What were the redeeming qualities?? On top of that, I don't think it could make librarians look any more unglamorous than it did."
 
-
-
-
+print(inference(model, config, example_txt))
 
