@@ -1,12 +1,15 @@
 import pandas as pd
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, random_split
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModel
 
 ### config ###
 file_path = '../data/imdb.csv'
 model_id = 'albert/albert-base-v2'
 batch_size = 16
+
 
 class TextClassification(Dataset):
     def __init__(self, file_path, model_id):
@@ -45,8 +48,37 @@ def prepare_dataloaders(dataset, batch_size, split_size=0.9):
     test_dataloadder = DataLoader(test_dataset, batch_size)
     return train_dataloader, test_dataloadder
 
+
 train_dataloader, test_dataloader = prepare_dataloaders(dataset, batch_size)
 
+
+class AlbertModelForClassification(nn.Module):
+    def __init__(self, model_id, num_labels=2):
+        super().__init__()
+        self.model = AutoModel.from_pretrained(model_id)
+        # check documentation in hf
+        hidden_size = self.model.config.hidden_size
+        self.out = nn.Linear(hidden_size, num_labels)
+
+    def forward(self, inputs, use_cls_token=True):
+        labels = inputs['labels']
+        del inputs['labels']
+        outputs = self.model(**inputs)
+
+        # choosing cls of avg output, will change dependign on performance
+        if use_cls_token:
+            logits = outputs.pooler_output
+        else:
+            last_hidden_state = outputs.last_hidden_state
+            logits = torch.mean(last_hidden_state, dim=1)
+        scores = self.out(logits)
+        scores = F.softmax(scores, dim=-1)
+        loss = F.cross_entropy(scores, labels)
+        return scores, loss
+
+
+model = AlbertModelForClassification(model_id)
+
 for item in train_dataloader:
-    print(item)
-    break
+    output, loss = model(item)
+    print(output)
