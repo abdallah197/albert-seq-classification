@@ -1,11 +1,12 @@
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer
 
 ### config ###
 file_path = '../data/imdb.csv'
 model_id = 'albert/albert-base-v2'
+batch_size = 16
 
 class TextClassification(Dataset):
     def __init__(self, file_path, model_id):
@@ -32,9 +33,20 @@ class TextClassification(Dataset):
         tokenized_txt['labels'] = label.type_as(tokenized_txt['input_ids'])
         return tokenized_txt
 
-dataset = TextClassification(file_path, model_id)
-train_size = int(0.9 * len(dataset))
-test_size = len(dataset) - train_size
-train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
 
-train_dataloader, test_dataloader = prepare_dataloaders(dataset, split_size= 0.9)
+dataset = TextClassification(file_path, model_id)
+
+
+def prepare_dataloaders(dataset, batch_size, split_size=0.9):
+    train_size = int(split_size * len(dataset))
+    test_size = len(dataset) - train_size
+    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+    train_dataloader = DataLoader(train_dataset, batch_size)
+    test_dataloadder = DataLoader(test_dataset, batch_size)
+    return train_dataloader, test_dataloadder
+
+train_dataloader, test_dataloader = prepare_dataloaders(dataset, batch_size)
+
+for item in train_dataloader:
+    print(item)
+    break
