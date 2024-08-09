@@ -11,10 +11,10 @@ from sklearn.metrics import accuracy_score
 class TrainConfig:
     file_path = '../data/imdb.csv'
     model_id = 'albert/albert-base-v2'
-    batch_size = 16
+    batch_size = 4
     eval_steps = 10
     max_lr = 3e-5
-    epochs = 4
+    epochs = 1
     device = 'cpu'
     out_dir = 'output'
 
@@ -23,8 +23,6 @@ config = TrainConfig()
 
 if torch.cuda.is_available():
     config.device = "cuda"
-elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-    config.device = "mps"
 print(f"using device: {config.device}")
 
 
@@ -55,7 +53,7 @@ class TextClassification(Dataset):
         return tokenized_txt
 
 
-dataset = TextClassification(file_path, model_id)
+dataset = TextClassification(config.file_path, config.model_id)
 
 
 def prepare_dataloaders(dataset, batch_size, split_size=0.9):
@@ -67,7 +65,7 @@ def prepare_dataloaders(dataset, batch_size, split_size=0.9):
     return train_dataloader, test_dataloadder
 
 
-train_dataloader, test_dataloader = prepare_dataloaders(dataset, batch_size)
+train_dataloader, test_dataloader = prepare_dataloaders(dataset, config.batch_size)
 
 
 class AlbertModelForClassification(nn.Module):
@@ -95,7 +93,7 @@ class AlbertModelForClassification(nn.Module):
         return scores, loss
 
 
-model = AlbertModelForClassification(model_id)
+model = AlbertModelForClassification(config.model_id)
 
 def train(config: TrainConfig, model: AlbertModelForClassification, train_dataloader:DataLoader, test_dataloader: DataLoader):
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.max_lr)
@@ -113,8 +111,9 @@ def train(config: TrainConfig, model: AlbertModelForClassification, train_datalo
             model.train()
             item = {key: val.to(config.device) for key, val in item.items()}
             optimizer.zero_grad()
-            logits, loss = model()
+            logits, loss = model(item)
             total_loss += loss.detach()
+            print(f'train loss: {total_loss.detach().item() / config.eval_steps}')
             loss.backward()
             optimizer.step()
             scheduler.step()
@@ -139,7 +138,7 @@ def train(config: TrainConfig, model: AlbertModelForClassification, train_datalo
                     best_model = torch.save(model.state_dict(), config.out_dir)
     return best_model
 
-
+train(config, model, train_dataloader, test_dataloader)
 
 
 
