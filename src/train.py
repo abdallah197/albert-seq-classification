@@ -1,3 +1,5 @@
+import os
+
 import torch
 from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader
@@ -8,6 +10,8 @@ from model import AlbertModelForClassification
 
 def train(config: TrainConfig, model: AlbertModelForClassification, train_dataloader: DataLoader,
           test_dataloader: DataLoader):
+    if not os.path.exists(config.out_dir):
+        os.makedirs(config.out_dir)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.max_lr)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, config.max_lr, epochs=config.epochs,
                                                     steps_per_epoch=len(train_dataloader))
