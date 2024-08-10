@@ -27,19 +27,19 @@ def train(config: TrainConfig, model: AlbertModelForClassification, train_datalo
             optimizer.zero_grad()
             logits, loss = model(item)
             total_loss += loss.detach()
-            print(f'train loss: {total_loss.detach().item() / config.eval_steps}')
             loss.backward()
             optimizer.step()
             scheduler.step()
 
-            if step % config.eval_steps:
+            if step % config.eval_steps == 0:
                 print(f'train loss: {total_loss.detach().item() / config.eval_steps}')
+                total_loss = 0.0
                 model.eval()
                 preds, true_labels = [], []
 
                 for _, eval_item in enumerate(test_dataloader):
                     eval_item = {key: val.to(config.device) for key, val in eval_item.items()}
-                    labels_ = eval_item['labels']
+                    labels_ = eval_item['labels'].to(config.device)
                     with torch.no_grad():
                         scores, _ = model(eval_item)
                     preds_ = torch.argmax(scores, dim=1).tolist()
@@ -49,5 +49,7 @@ def train(config: TrainConfig, model: AlbertModelForClassification, train_datalo
                 print(f'step: {step}, acc: {acc}')
                 if acc > best_accuracy:
                     best_accuracy = acc
-                    best_model = torch.save(model.state_dict(), config.out_dir)
+                    torch.save(model.state_dict(), f"{config.out_dir}/best_model.pth")
+                    best_model = model
+
     return best_model
