@@ -16,7 +16,7 @@ dataset = TextClassification(config.file_path, config.model_id)
 
 train_dataloader, test_dataloader = prepare_dataloaders(dataset, config.batch_size)
 model = AlbertModelForClassification(config.model_id)
-
+model.to(config.device)
 if config.train:
     print('Running Training')
 
